@@ -74,7 +74,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	stdLog "log"
@@ -396,13 +395,17 @@ type flushSyncWriter interface {
 }
 
 func init() {
+/*
 	flag.BoolVar(&logging.toStderr, "logtostderr", false, "log to standard error instead of files")
 	flag.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "log to standard error as well as files")
 	flag.Var(&logging.verbosity, "v", "log level for V logs")
 	flag.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
+*/
 
+	logging.toStderr = false
+	logging.alsoToStderr = false
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
 
@@ -416,7 +419,7 @@ func Flush() {
 }
 
 // loggingT collects all the global state of the logging setup.
-type loggingT struct {
+type LoggingT struct {
 	// Boolean flags. Not handled atomically because the flag.Value interface
 	// does not let us avoid the =true, and that shorthand is necessary for
 	// compatibility. TODO: does this matter enough to fix? Seems unlikely.
@@ -462,11 +465,11 @@ type buffer struct {
 	next *buffer
 }
 
-var logging loggingT
+var logging LoggingT
 
 // setVState sets a consistent state for V logging.
 // l.mu is held.
-func (l *loggingT) setVState(verbosity Level, filter []modulePat, setFilter bool) {
+func (l *LoggingT) setVState(verbosity Level, filter []modulePat, setFilter bool) {
 	// Turn verbosity off so V will not fire while we are in transition.
 	logging.verbosity.set(0)
 	// Ditto for filter length.
@@ -485,7 +488,7 @@ func (l *loggingT) setVState(verbosity Level, filter []modulePat, setFilter bool
 }
 
 // getBuffer returns a new, ready-to-use buffer.
-func (l *loggingT) getBuffer() *buffer {
+func (l *LoggingT) getBuffer() *buffer {
 	l.freeListMu.Lock()
 	b := l.freeList
 	if b != nil {
@@ -502,7 +505,7 @@ func (l *loggingT) getBuffer() *buffer {
 }
 
 // putBuffer returns a buffer to the free list.
-func (l *loggingT) putBuffer(b *buffer) {
+func (l *LoggingT) putBuffer(b *buffer) {
 	if b.Len() >= 256 {
 		// Let big buffers die a natural death.
 		return
@@ -532,7 +535,7 @@ where the fields are defined as follows:
 	line             The line number
 	msg              The user-supplied message
 */
-func (l *loggingT) header(s severity, depth int) (*buffer, string, int) {
+func (l *LoggingT) header(s severity, depth int) (*buffer, string, int) {
 	_, file, line, ok := runtime.Caller(3 + depth)
 	if !ok {
 		file = "???"
@@ -547,7 +550,7 @@ func (l *loggingT) header(s severity, depth int) (*buffer, string, int) {
 }
 
 // formatHeader formats a log header using the provided file name and line number.
-func (l *loggingT) formatHeader(s severity, file string, line int) *buffer {
+func (l *LoggingT) formatHeader(s severity, file string, line int) *buffer {
 	now := timeNow()
 	if line < 0 {
 		line = 0 // not a real line number, but acceptable to someDigits
@@ -627,17 +630,17 @@ func (buf *buffer) someDigits(i, d int) int {
 	return copy(buf.tmp[i:], buf.tmp[j:])
 }
 
-func (l *loggingT) println(s severity, args ...interface{}) {
+func (l *LoggingT) println(s severity, args ...interface{}) {
 	buf, file, line := l.header(s, 0)
 	fmt.Fprintln(buf, args...)
 	l.output(s, buf, file, line, false)
 }
 
-func (l *loggingT) print(s severity, args ...interface{}) {
+func (l *LoggingT) print(s severity, args ...interface{}) {
 	l.printDepth(s, 1, args...)
 }
 
-func (l *loggingT) printDepth(s severity, depth int, args ...interface{}) {
+func (l *LoggingT) printDepth(s severity, depth int, args ...interface{}) {
 	buf, file, line := l.header(s, depth)
 	fmt.Fprint(buf, args...)
 	if buf.Bytes()[buf.Len()-1] != '\n' {
@@ -646,7 +649,7 @@ func (l *loggingT) printDepth(s severity, depth int, args ...interface{}) {
 	l.output(s, buf, file, line, false)
 }
 
-func (l *loggingT) printf(s severity, format string, args ...interface{}) {
+func (l *LoggingT) printf(s severity, format string, args ...interface{}) {
 	buf, file, line := l.header(s, 0)
 	fmt.Fprintf(buf, format, args...)
 	if buf.Bytes()[buf.Len()-1] != '\n' {
@@ -658,7 +661,7 @@ func (l *loggingT) printf(s severity, format string, args ...interface{}) {
 // printWithFileLine behaves like print but uses the provided file and line number.  If
 // alsoLogToStderr is true, the log message always appears on standard error; it
 // will also appear in the log file unless --logtostderr is set.
-func (l *loggingT) printWithFileLine(s severity, file string, line int, alsoToStderr bool, args ...interface{}) {
+func (l *LoggingT) printWithFileLine(s severity, file string, line int, alsoToStderr bool, args ...interface{}) {
 	buf := l.formatHeader(s, file, line)
 	fmt.Fprint(buf, args...)
 	if buf.Bytes()[buf.Len()-1] != '\n' {
@@ -668,7 +671,7 @@ func (l *loggingT) printWithFileLine(s severity, file string, line int, alsoToSt
 }
 
 // output writes the data to the log files and releases the buffer.
-func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoToStderr bool) {
+func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoToStderr bool) {
 	l.mu.Lock()
 	if l.traceLocation.isSet() {
 		if l.traceLocation.match(file, line) {
@@ -781,7 +784,7 @@ var logExitFunc func(error)
 // exit is called if there is trouble creating or writing log files.
 // It flushes the logs and exits the program; there's no point in hanging around.
 // l.mu is held.
-func (l *loggingT) exit(err error) {
+func (l *LoggingT) exit(err error) {
 	fmt.Fprintf(os.Stderr, "log: exiting because of error: %s\n", err)
 	// If logExitFunc is set, we do that instead of exiting.
 	if logExitFunc != nil {
@@ -797,7 +800,7 @@ func (l *loggingT) exit(err error) {
 // file rotation. There are conflicting methods, so the file cannot be embedded.
 // l.mu is held for all its methods.
 type syncBuffer struct {
-	logger *loggingT
+	logger *LoggingT
 	*bufio.Writer
 	file   *os.File
 	sev    severity
@@ -855,7 +858,7 @@ const bufferSize = 256 * 1024
 
 // createFiles creates all the log files for severity from sev down to infoLog.
 // l.mu is held.
-func (l *loggingT) createFiles(sev severity) error {
+func (l *LoggingT) createFiles(sev severity) error {
 	now := time.Now()
 	// Files are created in decreasing severity order, so as soon as we find one
 	// has already been created, we can stop.
@@ -875,14 +878,14 @@ func (l *loggingT) createFiles(sev severity) error {
 const flushInterval = 30 * time.Second
 
 // flushDaemon periodically flushes the log file buffers.
-func (l *loggingT) flushDaemon() {
+func (l *LoggingT) flushDaemon() {
 	for _ = range time.NewTicker(flushInterval).C {
 		l.lockAndFlushAll()
 	}
 }
 
 // lockAndFlushAll is like flushAll but locks l.mu first.
-func (l *loggingT) lockAndFlushAll() {
+func (l *LoggingT) lockAndFlushAll() {
 	l.mu.Lock()
 	l.flushAll()
 	l.mu.Unlock()
@@ -890,7 +893,7 @@ func (l *loggingT) lockAndFlushAll() {
 
 // flushAll flushes all the logs and attempts to "sync" their data to disk.
 // l.mu is held.
-func (l *loggingT) flushAll() {
+func (l *LoggingT) flushAll() {
 	// Flush from fatal down, in case there's trouble flushing.
 	for s := fatalLog; s >= infoLog; s-- {
 		file := l.file[s]
@@ -955,7 +958,7 @@ func (lb logBridge) Write(b []byte) (n int, err error) {
 // of its .go suffix, and uses filepath.Match, which is a little more
 // general than the *? matching used in C++.
 // l.mu is held.
-func (l *loggingT) setV(pc uintptr) Level {
+func (l *LoggingT) setV(pc uintptr) Level {
 	fn := runtime.FuncForPC(pc)
 	file, _ := fn.FileLine(pc)
 	// The file is something like /a/b/c/d.go. We want just the d.
