@@ -40,14 +40,18 @@ var logDirs []string
 // See createLogDirs for the full list of possible destinations.
 var logDir = flag.String("log_dir", "", "If non-empty, write log files in this directory")
 
-func createLogDirs() {
-	fmt.Println(*logDir)
+//
+func createLogDirs(ldir string) {
 	if *logDir != "" {
 		logDirs = append(logDirs, *logDir)
+	} else if(ldir != "") {
+		logDirs = append(logDirs, ldir)
 	} else {
 		const default_dir = "./"
 		logDirs = append(logDirs, default_dir)	
 	}
+	// len(logDirs) == 1
+	os.MkdirAll(logDirs[0], 0666)
 	fmt.Println("log dir : ", logDirs)
 }
 
@@ -106,8 +110,10 @@ var onceLogDirs sync.Once
 // contains tag ("INFO", "FATAL", etc.) and t.  If the file is created
 // successfully, create also attempts to update the symlink for that tag, ignoring
 // errors.
-func create(tag string, t time.Time) (f *os.File, filename string, err error) {
-	onceLogDirs.Do(createLogDirs)
+func create(tag string, t time.Time, ldir string) (f *os.File, filename string, err error) {
+	onceLogDirs.Do(func () {
+		createLogDirs(ldir)
+	})
 	if len(logDirs) == 0 {
 		return nil, "", errors.New("log: no log dirs")
 	}
