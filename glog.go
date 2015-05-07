@@ -450,6 +450,7 @@ type LoggingT struct {
 	
 	logFileLevel severity
 	
+	//logname string
 	// end add wangjia
 	
 	
@@ -732,8 +733,8 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 		
 		if l.logFile != nil {
 			l.logFile.Write(trace)	
+			l.logFile.Flush()
 		}
-		
 		/*
 		for log := fatalLog; log >= infoLog; log-- {
 			if f := l.file[log]; f != nil { // Can be nil if -logtostderr is set.
@@ -817,7 +818,7 @@ type syncBuffer struct {
 	logger *LoggingT
 	*bufio.Writer
 	file   *os.File
-	sev    severity
+	//sev    severity
 	nbytes uint64 // The number of bytes written to this file
 }
 
@@ -846,7 +847,7 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 		sb.file.Close()
 	}
 	var err error
-	sb.file, _, err = create(severityName[sb.sev], now, sb.logger.logPath)
+	sb.file, _, err = create("LOG", now, sb.logger.logPath)
 	sb.nbytes = 0
 	if err != nil {
 		return err

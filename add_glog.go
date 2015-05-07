@@ -137,26 +137,35 @@ const (
 	RotateSize				// MB
 )
 
+type LoggerError struct {
+	info string
+}
+
+func (l *LoggerError)Error() string {
+	return "LoggerError : " + l.info
+}
+
 // create a new logger
-// filename : log file name
+// filename : log file name can't be empty
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLogger1(logPath string, rotateType int) *LoggingT {
+func NewLogger(logPath string, rotateType int) (*LoggingT, error) {
+	
+	if logPath == "" {
+		return nil, &LoggerError{ info: "logPath can't be empty" }
+	}
+	
 	var l LoggingT
 	l.logPath = logPath
 	l.toStderr = false // outPut to stderr
 	l.alsoToStderr = false
-	l.logFileLevel = warningLog
+	l.logFileLevel = errorLog
 	
-	l.stderrThreshold = l.logFileLevel
+	l.stderrThreshold = fatalLog //l.logFileLevel
 	l.setVState(0, nil, false)
 	// thread-safe?
 	go l.flushDaemon()
-	return &l
-}
-
-func NewLogger() *LoggingT {
-	return NewLogger1("", RotateDaily);
+	return &l, nil
 }
 
 // create single file replace createfiles
@@ -166,7 +175,7 @@ func (l * LoggingT)createFile() error {
 	sb := &syncBuffer{
 				logger: l,
 				// TODO
-				sev:    infoLog,
+				//sev:    infoLog,
 			}
 	
 	if err := sb.rotateFile(now); err != nil {
