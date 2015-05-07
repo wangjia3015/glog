@@ -132,8 +132,10 @@ func (l *LoggingT)Exitf(format string, args ...interface{}) {
 	l.printf(fatalLog, format, args...)
 }
 
+type RotateType int
+
 const (
-	RotateDaily int = iota
+	RotateDaily RotateType = iota
 	RotateSize				// MB
 )
 
@@ -149,13 +151,23 @@ func (l *LoggerError)Error() string {
 // filename : log file name can't be empty
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLogger(logPath string, rotateType int) (*LoggingT, error) {
+func NewLogger(logPath string, rt RotateType) (*LoggingT, error) {
 	
 	if logPath == "" {
 		return nil, &LoggerError{ info: "logPath can't be empty" }
 	}
 	
 	var l LoggingT
+	
+	switch rt {
+		case RotateDaily:
+			l.rotateDaily = true
+			l.rotateTime = 40000 // 4:00:00
+		default : // RotateSize
+			l.rotateDaily = false
+			l.rotateFileMaxSize = 100 // (MB)
+	}
+	
 	l.logPath = logPath
 	l.toStderr = false // outPut to stderr
 	l.alsoToStderr = false

@@ -456,7 +456,7 @@ type LoggingT struct {
 	lastRotateTime time.Time
 	rotateTime int // 4:30:20  -> 43020 ; 18:20:01 -> 182001
 	
-	rotateFileNum int
+	//rotateFileNum int
 	rotateFileMaxSize int
 	// end add wangjia
 	

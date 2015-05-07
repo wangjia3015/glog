@@ -154,19 +154,18 @@ func getDailyFileName(dir string, t time.Time) string {
 	return name
 }
 
-
 func getRotateFileName(dir string) (string, error) {
-	fname := fmt.Sprintf("%s.%s.%s.%d.log",
+	fname := fmt.Sprintf("%s.%s.%s.log",
 		program,
 		host,
 		userName,
-		pid)
+		)
 	fname = filepath.Join(dir, fname)
 	descName, err := rotateFileName(fname, 10)
 	if err != nil {
 		return descName, err
 	}
-	err = os.Rename(fname, descName)
+	os.Rename(fname, descName)
 	return fname, err
 }
 
