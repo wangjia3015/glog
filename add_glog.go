@@ -141,12 +141,14 @@ const (
 // filename : log file name
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLogger1(filename string, rotateType int) *LoggingT {
+func NewLogger1(logPath string, rotateType int) *LoggingT {
 	var l LoggingT
-	l.toStderr = false
+	l.logPath = logPath
+	l.toStderr = false // outPut to stderr
 	l.alsoToStderr = false
-	// just for debug
-	l.stderrThreshold = infoLog
+	l.logFileLevel = warningLog
+	
+	l.stderrThreshold = l.logFileLevel
 	l.setVState(0, nil, false)
 	// thread-safe?
 	go l.flushDaemon()
@@ -173,4 +175,8 @@ func (l * LoggingT)createFile() error {
 	
 	l.logFile = sb;
 	return nil
+}
+
+func (l *LoggingT)Close() {
+	l.lockAndFlushAll()
 }
