@@ -130,3 +130,24 @@ func (l *LoggingT)Exitf(format string, args ...interface{}) {
 	atomic.StoreUint32(&fatalNoStacks, 1)
 	l.printf(fatalLog, format, args...)
 }
+
+const {
+	RotateDaily int = iota
+	RotateSize				// MB
+}
+
+// create a new logger
+// filename : log file name
+// rotate type : 1. rotate count, max file size 
+// 				 2. daliy rotate
+func NewLogger(filename string, rotateType int) *LoggingT {
+	var l LoggingT
+	l.toStderr = false
+	l.alsoToStderr = false
+	// just for debug
+	l.stderrThreshold = infoLog
+	l.setVState(0, nil, false)
+	// thread-safe?
+	go l.flushDaemon()
+	return &l
+}
