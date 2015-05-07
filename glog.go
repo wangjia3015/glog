@@ -441,6 +441,10 @@ type LoggingT struct {
 	mu sync.Mutex
 	// file holds writer for each of the log types.
 	file [numSeverity]flushSyncWriter
+	
+	// add by wangjia just write one file
+	logFile flushSyncWriter
+	
 	// pcs is used in V to avoid an allocation when computing the caller's PC.
 	pcs [1]uintptr
 	// vmap is a cache of the V Level for each V() call site, identified by PC.
@@ -457,6 +461,8 @@ type LoggingT struct {
 	vmodule   moduleSpec // The state of the -vmodule flag.
 	verbosity Level      // V logging level, the value of the -v flag/
 }
+
+
 
 // buffer holds a byte Buffer for reuse. The zero value is ready for use.
 type buffer struct {
@@ -683,27 +689,17 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 		os.Stderr.Write(data)
 	} else {
 		if alsoToStderr || l.alsoToStderr || s >= l.stderrThreshold.get() {
+			fmt.Println("ECHO ", alsoToStderr, l.alsoToStderr, s, l.stderrThreshold.get())
 			os.Stderr.Write(data)
 		}
-		if l.file[s] == nil {
-			if err := l.createFiles(s); err != nil {
+		
+		if l.logFile == nil {
+			if err := l.createFile(); err != nil {
 				os.Stderr.Write(data) // Make sure the message appears somewhere.
 				l.exit(err)
 			}
 		}
-		switch s {
-		case fatalLog:
-			l.file[fatalLog].Write(data)
-			fallthrough
-		case errorLog:
-			l.file[errorLog].Write(data)
-			fallthrough
-		case warningLog:
-			l.file[warningLog].Write(data)
-			fallthrough
-		case infoLog:
-			l.file[infoLog].Write(data)
-		}
+		l.logFile.Write(data)
 	}
 	if s == fatalLog {
 		// If we got here via Exit rather than Fatal, print no stacks.
@@ -856,6 +852,7 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 // on disk I/O. The flushDaemon will block instead.
 const bufferSize = 256 * 1024
 
+/*
 // createFiles creates all the log files for severity from sev down to infoLog.
 // l.mu is held.
 func (l *LoggingT) createFiles(sev severity) error {
@@ -874,6 +871,7 @@ func (l *LoggingT) createFiles(sev severity) error {
 	}
 	return nil
 }
+*/
 
 const flushInterval = 30 * time.Second
 

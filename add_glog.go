@@ -2,6 +2,7 @@ package glog
 
 import (	
 	"sync/atomic"
+	"time"
 )
 
 func (l *LoggingT)Info(args ...interface{}) {
@@ -131,16 +132,16 @@ func (l *LoggingT)Exitf(format string, args ...interface{}) {
 	l.printf(fatalLog, format, args...)
 }
 
-const {
+const (
 	RotateDaily int = iota
 	RotateSize				// MB
-}
+)
 
 // create a new logger
 // filename : log file name
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLogger(filename string, rotateType int) *LoggingT {
+func NewLogger1(filename string, rotateType int) *LoggingT {
 	var l LoggingT
 	l.toStderr = false
 	l.alsoToStderr = false
@@ -150,4 +151,26 @@ func NewLogger(filename string, rotateType int) *LoggingT {
 	// thread-safe?
 	go l.flushDaemon()
 	return &l
+}
+
+func NewLogger() *LoggingT {
+	return NewLogger1("", RotateDaily);
+}
+
+// create single file replace createfiles
+func (l * LoggingT)createFile() error {
+	now := time.Now()
+	
+	sb := &syncBuffer{
+				logger: l,
+				// TODO
+				sev:    infoLog,
+			}
+	
+	if err := sb.rotateFile(now); err != nil {
+		return err
+	}
+	
+	l.logFile = sb;
+	return nil
 }
