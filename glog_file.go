@@ -110,25 +110,86 @@ var onceLogDirs sync.Once
 // contains tag ("INFO", "FATAL", etc.) and t.  If the file is created
 // successfully, create also attempts to update the symlink for that tag, ignoring
 // errors.
-func create(tag string, t time.Time, ldir string) (f *os.File, filename string, err error) {
+func create(/*tag string,*/ t time.Time, ldir string, dailyRotate bool) (f *os.File, filename string, err error) {
 	onceLogDirs.Do(func () {
 		createLogDirs(ldir)
 	})
 	if len(logDirs) == 0 {
 		return nil, "", errors.New("log: no log dirs")
 	}
-	name, link := logName(tag, t)
-	var lastErr error
-	for _, dir := range logDirs {
-		fname := filepath.Join(dir, name)
-		f, err := os.Create(fname)
-		if err == nil {
-			symlink := filepath.Join(dir, link)
-			os.Remove(symlink)        // ignore err
-			os.Symlink(name, symlink) // ignore err
-			return f, fname, nil
-		}
-		lastErr = err
+	//name, link := logName(tag, t)
+	var fname string
+	if dailyRotate {
+		fname = getDailyFileName(logDirs[0], t)
+	} else {
+		fname, err = getRotateFileName(logDirs[0])
 	}
-	return nil, "", fmt.Errorf("log: cannot create log: %v", lastErr)
+	
+	
+	if err != nil {
+		return nil, "", fmt.Errorf("log: cannot create log: %v", err)
+	}
+	
+	f, err = os.Create(fname)
+	
+	if err != nil {
+		return nil, "", fmt.Errorf("log: cannot create log: %v", err)	
+	}
+	return f, fname, nil
+	
+}
+
+func getDailyFileName(dir string, t time.Time) string {
+	name := fmt.Sprintf("%s.%s.%s.%d.log.%04d%02d%02d-%02d%02d%02d",
+		program,
+		host,
+		userName,
+		pid,
+		t.Year(),
+		t.Month(),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second())
+	return name
+}
+
+
+func getRotateFileName(dir string) (string, error) {
+	fname := fmt.Sprintf("%s.%s.%s.%d.log",
+		program,
+		host,
+		userName,
+		pid)
+	fname = filepath.Join(dir, fname)
+	descName, err := rotateFileName(fname, 10)
+	if err != nil {
+		return descName, err
+	}
+	err = os.Rename(fname, descName)
+	return fname, err
+}
+
+// 查找可以使用的文件夹
+func rotateFileName(fname string, rotNum int) (string, error) {
+	// 找最旧的一个或者找不存在的第一个如果返回空代表全是文件夹
+	var t time.Time = time.Now()
+	var oldName string
+	for i := 0; i < rotNum; i++ {
+		filename := fname + fmt.Sprintf(".%03d", i)
+		fInfo, err := os.Lstat(filename)
+		if err == nil {
+			if  !fInfo.IsDir() && t.After(fInfo.ModTime()) {
+				t = fInfo.ModTime()
+				oldName = filename
+			}
+		} else {
+			oldName = filename
+			break
+		}
+	}
+	if len(oldName) <= 0 {
+		return oldName, &LoggerError{ fname + "000 can't be create" }
+	}
+	return oldName, nil
 }

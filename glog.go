@@ -391,6 +391,7 @@ func (t *traceLocation) Set(value string) error {
 type flushSyncWriter interface {
 	Flush() error
 	Sync() error
+	rotateFWriter() error
 	io.Writer
 }
 
@@ -403,7 +404,7 @@ func init() {
 	flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
 */
-
+	logging.rotateDaily = false
 	logging.toStderr = false
 	logging.alsoToStderr = false
 	// Default stderrThreshold is ERROR.
@@ -450,7 +451,13 @@ type LoggingT struct {
 	
 	logFileLevel severity
 	
-	//logname string
+	
+	rotateDaily bool
+	lastRotateTime time.Time
+	rotateTime int // 4:30:20  -> 43020 ; 18:20:01 -> 182001
+	
+	rotateFileNum int
+	rotateFileMaxSize int
 	// end add wangjia
 	
 	
@@ -827,11 +834,14 @@ func (sb *syncBuffer) Sync() error {
 }
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
+	
+	// size rotate
 	if sb.nbytes+uint64(len(p)) >= MaxSize {
 		if err := sb.rotateFile(time.Now()); err != nil {
 			sb.logger.exit(err)
 		}
 	}
+	
 	n, err = sb.Writer.Write(p)
 	sb.nbytes += uint64(n)
 	if err != nil {
@@ -847,7 +857,9 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 		sb.file.Close()
 	}
 	var err error
-	sb.file, _, err = create("LOG", now, sb.logger.logPath)
+	// TODO
+	useDailyRotate := true
+	sb.file, _, err = create(now, sb.logger.logPath, useDailyRotate)
 	sb.nbytes = 0
 	if err != nil {
 		return err
@@ -871,33 +883,16 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 // on disk I/O. The flushDaemon will block instead.
 const bufferSize = 256 * 1024
 
-/*
-// createFiles creates all the log files for severity from sev down to infoLog.
-// l.mu is held.
-func (l *LoggingT) createFiles(sev severity) error {
-	now := time.Now()
-	// Files are created in decreasing severity order, so as soon as we find one
-	// has already been created, we can stop.
-	for s := sev; s >= infoLog && l.file[s] == nil; s-- {
-		sb := &syncBuffer{
-			logger: l,
-			sev:    s,
-		}
-		if err := sb.rotateFile(now); err != nil {
-			return err
-		}
-		l.file[s] = sb
-	}
-	return nil
-}
-*/
-
 const flushInterval = 30 * time.Second
 
 // flushDaemon periodically flushes the log file buffers.
+// check if need daily rotate
 func (l *LoggingT) flushDaemon() {
 	for _ = range time.NewTicker(flushInterval).C {
 		l.lockAndFlushAll()
+		if l.needDailyRotate(time.Now()) {
+			l.lockAndRotateFile()
+		}
 	}
 }
 

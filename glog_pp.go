@@ -189,3 +189,34 @@ func (l * LoggingT)createFile() error {
 func (l *LoggingT)Close() {
 	l.lockAndFlushAll()
 }
+
+func (l *LoggingT)lockAndRotateFile() {
+	l.mu.Lock()
+	l.logFile.rotateFWriter()
+	l.mu.Unlock()
+}
+
+func timeToDateClock(t time.Time) (int, int) {
+	y, m, d := t.Date()
+	h, min, s := t.Clock()
+	return (y * 10000 + int(m) * 100 + d), (h * 10000 + min * 100 + s)
+}
+
+func (l *LoggingT)needDailyRotate(now time.Time) bool {
+	if l.rotateDaily {
+		day, t := timeToDateClock(now)
+		last_day, _ := timeToDateClock(l.lastRotateTime)
+		// 当前日期大于上次日期 超过24 小时不考虑
+		if day > last_day && t > l.rotateTime {
+			l.lastRotateTime = now
+			return true
+		}
+	}
+	return false
+}
+
+func (l *syncBuffer)rotateFWriter() error {
+	return l.rotateFile(time.Now())
+}
+
+
