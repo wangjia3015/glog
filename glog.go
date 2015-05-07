@@ -426,7 +426,7 @@ type LoggingT struct {
 	toStderr     bool // The -logtostderr flag.
 	alsoToStderr bool // The -alsologtostderr flag.
 
-	// Level flag. Handled atomically.
+	// Level flag. Handled atomically. 
 	stderrThreshold severity // The -stderrthreshold flag.
 
 	// freeList is a list of byte buffers, maintained under freeListMu.
@@ -440,10 +440,18 @@ type LoggingT struct {
 	// used to synchronize logging.
 	mu sync.Mutex
 	// file holds writer for each of the log types.
-	file [numSeverity]flushSyncWriter
+	// file [numSeverity]flushSyncWriter
 	
-	// add by wangjia just write one file
+	// add by wangjia 
+	// just write one file
 	logFile flushSyncWriter
+	
+	logPath string
+	
+	logFileLevel severity
+	
+	// end add wangjia
+	
 	
 	// pcs is used in V to avoid an allocation when computing the caller's PC.
 	pcs [1]uintptr
@@ -689,7 +697,7 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 		os.Stderr.Write(data)
 	} else {
 		if alsoToStderr || l.alsoToStderr || s >= l.stderrThreshold.get() {
-			fmt.Println("ECHO ", alsoToStderr, l.alsoToStderr, s, l.stderrThreshold.get())
+			//fmt.Println("ECHO ", alsoToStderr, l.alsoToStderr, s, l.stderrThreshold.get())
 			os.Stderr.Write(data)
 		}
 		
@@ -699,7 +707,10 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 				l.exit(err)
 			}
 		}
-		l.logFile.Write(data)
+		//fmt.Println("echo ", data)
+		if l.logFileLevel <= s {
+			l.logFile.Write(data)
+		}
 	}
 	if s == fatalLog {
 		// If we got here via Exit rather than Fatal, print no stacks.
@@ -718,11 +729,18 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 		// Write the stack trace for all goroutines to the files.
 		trace := stacks(true)
 		logExitFunc = func(error) {} // If we get a write error, we'll still exit below.
+		
+		if l.logFile != nil {
+			l.logFile.Write(trace)	
+		}
+		
+		/*
 		for log := fatalLog; log >= infoLog; log-- {
 			if f := l.file[log]; f != nil { // Can be nil if -logtostderr is set.
 				f.Write(trace)
 			}
 		}
+		*/
 		l.mu.Unlock()
 		timeoutFlush(10 * time.Second)
 		os.Exit(255) // C++ uses -1, which is silly because it's anded with 255 anyway.
@@ -828,7 +846,7 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 		sb.file.Close()
 	}
 	var err error
-	sb.file, _, err = create(severityName[sb.sev], now)
+	sb.file, _, err = create(severityName[sb.sev], now, sb.logger.logPath)
 	sb.nbytes = 0
 	if err != nil {
 		return err
@@ -893,12 +911,9 @@ func (l *LoggingT) lockAndFlushAll() {
 // l.mu is held.
 func (l *LoggingT) flushAll() {
 	// Flush from fatal down, in case there's trouble flushing.
-	for s := fatalLog; s >= infoLog; s-- {
-		file := l.file[s]
-		if file != nil {
-			file.Flush() // ignore error
-			file.Sync()  // ignore error
-		}
+	if l.logFile != nil {
+		l.logFile.Flush()
+		l.logFile.Sync()
 	}
 }
 
