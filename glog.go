@@ -409,8 +409,11 @@ func init() {
 	logging.alsoToStderr = false
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
-
+	
+	logging.SetRotateFileSize(uint64(20))
+	
 	logging.setVState(0, nil, false)
+	
 	go logging.flushDaemon()
 }
 
@@ -457,7 +460,7 @@ type LoggingT struct {
 	rotateTime int // 4:30:20  -> 43020 ; 18:20:01 -> 182001
 	
 	//rotateFileNum int
-	rotateFileMaxSize int
+	rotateFileMaxSize uint64
 	// end add wangjia
 	
 	
@@ -715,6 +718,7 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 				l.exit(err)
 			}
 		}
+		//fmt.Printf("l.logFileLevel %d <= s %d\n", l.logFileLevel, s)
 		//fmt.Println("echo ", data)
 		if l.logFileLevel <= s {
 			l.logFile.Write(data)
@@ -742,13 +746,7 @@ func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 			l.logFile.Write(trace)	
 			l.logFile.Flush()
 		}
-		/*
-		for log := fatalLog; log >= infoLog; log-- {
-			if f := l.file[log]; f != nil { // Can be nil if -logtostderr is set.
-				f.Write(trace)
-			}
-		}
-		*/
+
 		l.mu.Unlock()
 		timeoutFlush(10 * time.Second)
 		os.Exit(255) // C++ uses -1, which is silly because it's anded with 255 anyway.
@@ -835,9 +833,8 @@ func (sb *syncBuffer) Sync() error {
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 	
-	// size rotate
-	if sb.nbytes+uint64(len(p)) >= MaxSize {
-		if err := sb.rotateFile(time.Now()); err != nil {
+	if sb.logger.needFileSizeRotate(sb.nbytes+uint64(len(p))) {
+		if err := sb.rotateFile(time.Now(), false); err != nil {
 			sb.logger.exit(err)
 		}
 	}
@@ -851,14 +848,12 @@ func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 }
 
 // rotateFile closes the syncBuffer's file and starts a new one.
-func (sb *syncBuffer) rotateFile(now time.Time) error {
+func (sb *syncBuffer) rotateFile(now time.Time, useDailyRotate bool) error {
 	if sb.file != nil {
 		sb.Flush()
 		sb.file.Close()
 	}
 	var err error
-	// TODO
-	useDailyRotate := true
 	sb.file, _, err = create(now, sb.logger.logPath, useDailyRotate)
 	sb.nbytes = 0
 	if err != nil {

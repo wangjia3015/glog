@@ -1,10 +1,10 @@
 package glog
 
 import ("time"
-	"os"
+//	"os"
 		"testing"
 		"fmt"
-	"path/filepath"
+//	"path/filepath"
 		)
 
 var (
@@ -32,7 +32,7 @@ func TestToolFunc(t *testing.T) {
 	}
 }
 
-
+/*
 // TODO
 func TestRotateFile(t *testing.T) {
 	dir := os.TempDir()
@@ -54,15 +54,73 @@ func TestRotateFile(t *testing.T) {
 }
 
 func TestFile(t *testing.T) {
-	/*
+	
 	l, _ := NewLogger("./", RotateDaily)
 
 	for i :=0; i < 1000000; i++ {
 		l.Info("Just Test")
 	}
 	l.Close()
-	*/
+	
 	file, fname, err := create(ti, "./", false)
 	fmt.Println("create", file, fname, err)
 	file.Close()
+}
+
+func TestNeedRotate(t * testing.T) {
+	l, err := NewLogger("./")
+	if err != nil {
+		t.Error("NewLogger error %v ", err)
+	}
+	//tt := ti
+	d, _ := time.ParseDuration("24h")
+	t1 := ti.Add(d)
+	d, _ = time.ParseDuration("1h")
+	t2 := ti.Add(d)
+	d, _ = time.ParseDuration("-25h")
+	t3 := ti.Add(d)
+	d, _ = time.ParseDuration("-23h")
+	t4 := ti.Add(d)
+	
+	l.SetRotateDaily(120200)
+	// ti  2015-02-20 12:34:20
+	if l.lastRotateTime = t1 ; l.needDailyRotate(ti) {
+		t.Error("needDailyRotate ", t1, ti)
+	}
+	if l.lastRotateTime = t2; l.needDailyRotate(ti) {
+		t.Error("needDailyRotate ", t2, ti)
+	}
+	if l.lastRotateTime = t3; !l.needDailyRotate(ti) {
+		t.Error("needDailyRotate ", t3, ti)
+	}
+	if l.lastRotateTime = t4; !l.needDailyRotate(ti) {
+		t.Error("needDailyRotate ", t4, ti)
+	}
+
+}
+*/
+
+/*
+func TestMaxFileSizeRotate(t * testing.T) {
+	l, err := NewLogger("./")
+		if err != nil {
+		t.Error("NewLogger error %v ", err)
+	}
+	l.SetRotateFileSize(5)
+	
+	for i := 0 ; i < 1000000; i++ {
+		l.Info("Just for test")
+	}
+	l.Close()
+}
+*/
+
+
+func TestWriteLog(t * testing.T) {
+	for i := 0 ; i < 10000000; i++ {
+		Info("Just for test")
+	}
+	
+	
+	Close()
 }

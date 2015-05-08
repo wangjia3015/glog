@@ -165,7 +165,9 @@ func getRotateFileName(dir string) (string, error) {
 	if err != nil {
 		return descName, err
 	}
+	os.Remove(descName)
 	os.Rename(fname, descName)
+	fmt.Println("change name from ", fname, "to", descName)
 	return fname, err
 }
 

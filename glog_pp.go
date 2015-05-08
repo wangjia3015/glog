@@ -1,6 +1,7 @@
 package glog
 
 import (	
+	//"fmt"
 	"sync/atomic"
 	"time"
 )
@@ -151,33 +152,33 @@ func (l *LoggerError)Error() string {
 // filename : log file name can't be empty
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLogger(logPath string, rt RotateType) (*LoggingT, error) {
+func NewLogger(logPath string) (*LoggingT, error) {
 	
 	if logPath == "" {
 		return nil, &LoggerError{ info: "logPath can't be empty" }
 	}
 	
 	var l LoggingT
-	
-	switch rt {
-		case RotateDaily:
-			l.rotateDaily = true
-			l.rotateTime = 40000 // 4:00:00
-		default : // RotateSize
-			l.rotateDaily = false
-			l.rotateFileMaxSize = 100 // (MB)
-	}
-	
 	l.logPath = logPath
 	l.toStderr = false // outPut to stderr
 	l.alsoToStderr = false
-	l.logFileLevel = errorLog
-	
-	l.stderrThreshold = fatalLog //l.logFileLevel
+	l.logFileLevel = infoLog
+	l.stderrThreshold = errorLog//l.logFileLevel
 	l.setVState(0, nil, false)
 	// thread-safe?
 	go l.flushDaemon()
 	return &l, nil
+}
+
+//
+func (l *LoggingT)SetRotateDaily(time int) {
+	l.rotateDaily = true	
+	l.rotateTime = time // 4:00:00 -> 40000
+}
+
+func (l *LoggingT)SetRotateFileSize(maxSize uint64) {
+	l.rotateDaily = false
+	l.rotateFileMaxSize = maxSize * uint64(1024 * 1024) // to (MB)
 }
 
 // create single file replace createfiles
@@ -186,11 +187,9 @@ func (l * LoggingT)createFile() error {
 	
 	sb := &syncBuffer{
 				logger: l,
-				// TODO
-				//sev:    infoLog,
 			}
 	
-	if err := sb.rotateFile(now); err != nil {
+	if err := sb.rotateFile(now, l.rotateDaily); err != nil {
 		return err
 	}
 	
@@ -204,7 +203,9 @@ func (l *LoggingT)Close() {
 
 func (l *LoggingT)lockAndRotateFile() {
 	l.mu.Lock()
-	l.logFile.rotateFWriter()
+	if l.logFile != nil {
+		l.logFile.rotateFWriter()	
+	}
 	l.mu.Unlock()
 }
 
@@ -218,6 +219,9 @@ func (l *LoggingT)needDailyRotate(now time.Time) bool {
 	if l.rotateDaily {
 		day, t := timeToDateClock(now)
 		last_day, _ := timeToDateClock(l.lastRotateTime)
+		//fmt.Printf("now	 	 is %08d-%06d\n", day, t)
+		//fmt.Printf("last_day is %08d set rotate time %v\n", last_day, l.rotateTime)
+		//fmt.Printf("day > last_day %v t > l.rotateTime %v\n", day > last_day, t > l.rotateTime)
 		// 当前日期大于上次日期 超过24 小时不考虑
 		if day > last_day && t > l.rotateTime {
 			l.lastRotateTime = now
@@ -227,8 +231,22 @@ func (l *LoggingT)needDailyRotate(now time.Time) bool {
 	return false
 }
 
-func (l *syncBuffer)rotateFWriter() error {
-	return l.rotateFile(time.Now())
+func (l * LoggingT)needFileSizeRotate(currentSize uint64) bool {
+	return (l.rotateFileMaxSize <= currentSize)
 }
 
+
+func (l *syncBuffer)rotateFWriter() error {
+	return l.rotateFile(time.Now(), true)
+}
+
+func Close() {
+	logging.lockAndFlushAll()
+}
+
+/*
+func SetRotateDaily(t int) {
+	logging.SetRotateDaily(t)
+}
+*/
 
