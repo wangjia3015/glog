@@ -410,7 +410,7 @@ func init() {
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
 	
-	logging.SetRotateFileSize(uint64(20))
+	logging.setRotateFileSize(uint64(20))
 	
 	logging.setVState(0, nil, false)
 	

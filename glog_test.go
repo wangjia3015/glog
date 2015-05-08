@@ -100,20 +100,19 @@ func TestNeedRotate(t * testing.T) {
 }
 */
 
-/*
+
 func TestMaxFileSizeRotate(t * testing.T) {
-	l, err := NewLogger("./")
+	l, err := NewLoggerDailyRotate("./", 130000)
 		if err != nil {
 		t.Error("NewLogger error %v ", err)
 	}
-	l.SetRotateFileSize(5)
 	
 	for i := 0 ; i < 1000000; i++ {
 		l.Info("Just for test")
 	}
 	l.Close()
 }
-*/
+
 
 
 func TestWriteLog(t * testing.T) {

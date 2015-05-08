@@ -148,35 +148,14 @@ func (l *LoggerError)Error() string {
 	return "LoggerError : " + l.info
 }
 
-// create a new logger
-// filename : log file name can't be empty
-// rotate type : 1. rotate count, max file size 
-// 				 2. daliy rotate
-func NewLogger(logPath string) (*LoggingT, error) {
-	
-	if logPath == "" {
-		return nil, &LoggerError{ info: "logPath can't be empty" }
-	}
-	
-	var l LoggingT
-	l.logPath = logPath
-	l.toStderr = false // outPut to stderr
-	l.alsoToStderr = false
-	l.logFileLevel = infoLog
-	l.stderrThreshold = errorLog//l.logFileLevel
-	l.setVState(0, nil, false)
-	// thread-safe?
-	go l.flushDaemon()
-	return &l, nil
-}
 
 //
-func (l *LoggingT)SetRotateDaily(time int) {
+func (l *LoggingT)setRotateDaily(time int) {
 	l.rotateDaily = true	
 	l.rotateTime = time // 4:00:00 -> 40000
 }
 
-func (l *LoggingT)SetRotateFileSize(maxSize uint64) {
+func (l *LoggingT)setRotateFileSize(maxSize uint64) {
 	l.rotateDaily = false
 	l.rotateFileMaxSize = maxSize * uint64(1024 * 1024) // to (MB)
 }
@@ -244,9 +223,49 @@ func Close() {
 	logging.lockAndFlushAll()
 }
 
-/*
-func SetRotateDaily(t int) {
-	logging.SetRotateDaily(t)
-}
-*/
 
+// create a new logger
+// filename : log file name can't be empty
+// rotate type : 1. rotate count, max file size 
+// 				 2. daliy rotate
+func NewLoggerFileSizeRotate(logPath string, maxSize uint64) (*LoggingT, error) {
+	
+	if logPath == "" {
+		return nil, &LoggerError{ info: "logPath can't be empty" }
+	}
+	
+	var l LoggingT
+	l.logPath = logPath
+	l.setRotateFileSize(maxSize)
+	l.toStderr = false // outPut to stderr
+	l.alsoToStderr = false
+	l.logFileLevel = infoLog
+	l.stderrThreshold = errorLog//l.logFileLevel
+	l.setVState(0, nil, false)
+	// thread-safe?
+	go l.flushDaemon()
+	return &l, nil
+}
+
+// create a new logger
+// filename : log file name can't be empty
+// rotate type : 1. rotate count, max file size 
+// 				 2. daliy rotate
+func NewLoggerDailyRotate(logPath string, t int) (*LoggingT, error) {
+	
+	if logPath == "" {
+		return nil, &LoggerError{ info: "logPath can't be empty" }
+	}
+	
+	var l LoggingT
+	l.logPath = logPath
+	l.setRotateDaily(t)
+	l.toStderr = false // outPut to stderr
+	l.alsoToStderr = false
+	l.logFileLevel = infoLog
+	l.stderrThreshold = errorLog//l.logFileLevel
+	l.setVState(0, nil, false)
+	// thread-safe?
+	go l.flushDaemon()
+	return &l, nil
+}
