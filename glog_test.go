@@ -123,20 +123,109 @@ const (
 
 func TestMaxFileSizeRotate(t * testing.T) {
 	l, err := NewLoggerFileSizeRotate("./", 1, false)
+	
 	if err != nil {
-		t.Error("NewLogger error %v ", err)
+		t.Error("NewLoggerFileSizeRotate error %v ", err)
 	}
-	l.Info("Info Just for test")
-	l.Warning("Warning Just for test")
-	l.Error("Error Just for test")
+	
+	l.Info("Info Just","for test 1")
+	l.Infof("Info Just %s test %d", "for", 1)
+	l.Infoln("Info Just", "for", "test")
+
+	l.Warning("Warning Just","for test 1")
+	l.Warningf("Warningf Just %s test %d", "for", 1)
+	l.Warningln("Warningln Just", "for", "test")
+	
+	l.Error("Error Just","for test 1")
+	l.Errorf("Errorf Just %s test %d", "for", 1)
+	l.Errorln("Errorln Just", "for", "test")
+
+/*	
+	l.Fatal("Fatal Just","for test 1")
+	l.Fatalf("Fatalf Just %s test %d", "for", 1)
+	l.Fatalln("Fatalln Just", "for", "test")
+*/
 	l.Close()
 }
 
-/*
-func TestWriteLog(t * testing.T) {
-	for i := 0 ; i < totalNum; i++ {
-		Info("Just for test")
+func TestMaxFileSizeRotateMulti(t * testing.T) {
+	l, err := NewLoggerFileSizeRotate("./", 1, true)
+	
+	if err != nil {
+		t.Error("NewLoggerFileSizeRotate error %v ", err)
 	}
-	Close()
-}
+	
+	l.Info("Info Just","for test 1")
+	l.Infof("Info Just %s test %d", "for", 1)
+	l.Infoln("Info Just", "for", "test")
+
+	l.Warning("Warning Just","for test 1")
+	l.Warningf("Warningf Just %s test %d", "for", 1)
+	l.Warningln("Warningln Just", "for", "test")
+	
+	l.Error("Error Just","for test 1")
+	l.Errorf("Errorf Just %s test %d", "for", 1)
+	l.Errorln("Errorln Just", "for", "test")
+
+/*	
+	l.Fatal("Fatal Just","for test 1")
+	l.Fatalf("Fatalf Just %s test %d", "for", 1)
+	l.Fatalln("Fatalln Just", "for", "test")
 */
+	l.Close()
+}
+
+func TestDailyRotateSingle(t * testing.T) {
+	l, err := NewLoggerFileSizeRotate("./", 1, false)
+	
+	if err != nil {
+		t.Error("NewLoggerFileSizeRotate error %v ", err)
+	}
+	
+	l.Info("Info Just","for test 1")
+	l.Infof("Info Just %s test %d", "for", 1)
+	l.Infoln("Info Just", "for", "test")
+
+	l.Warning("Warning Just","for test 1")
+	l.Warningf("Warningf Just %s test %d", "for", 1)
+	l.Warningln("Warningln Just", "for", "test")
+	
+	l.Error("Error Just","for test 1")
+	l.Errorf("Errorf Just %s test %d", "for", 1)
+	l.Errorln("Errorln Just", "for", "test")
+
+/*	
+	l.Fatal("Fatal Just","for test 1")
+	l.Fatalf("Fatalf Just %s test %d", "for", 1)
+	l.Fatalln("Fatalln Just", "for", "test")
+*/
+	l.Close()
+}
+
+func TestDailyRotateMulti(t * testing.T) {
+	l, err := NewLoggerFileSizeRotate("./", 1, true)
+	
+	if err != nil {
+		t.Error("NewLoggerFileSizeRotate error %v ", err)
+	}
+	
+	l.Info("Info Just","for test 1")
+	l.Infof("Info Just %s test %d", "for", 1)
+	l.Infoln("Info Just", "for", "test")
+
+	l.Warning("Warning Just","for test 1")
+	l.Warningf("Warningf Just %s test %d", "for", 1)
+	l.Warningln("Warningln Just", "for", "test")
+	
+	l.Error("Error Just","for test 1")
+	l.Errorf("Errorf Just %s test %d", "for", 1)
+	l.Errorln("Errorln Just", "for", "test")
+
+/*	
+	l.Fatal("Fatal Just","for test 1")
+	l.Fatalf("Fatalf Just %s test %d", "for", 1)
+	l.Fatalln("Fatalln Just", "for", "test")
+*/
+	l.Close()
+}
+

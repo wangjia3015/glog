@@ -1,7 +1,6 @@
 package glog
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 )
@@ -41,7 +40,7 @@ type multiLogProxy struct {
 
 func (p * multiLogProxy)Write(sev severity, data []byte) {
 	for s := fatalLog; s >= infoLog; s-- {
-		fmt.Println("sev > s", sev > s, "-", sev , s)
+//		fmt.Println("sev > s", sev > s, "-", sev , s)
 		if sev < s {
 			continue
 		}
@@ -198,13 +197,6 @@ func (l *LoggingT)Exitf(format string, args ...interface{}) {
 	l.printf(fatalLog, format, args...)
 }
 
-type RotateType int
-
-const (
-	RotateDaily RotateType = iota
-	RotateSize				// MB
-)
-
 type LoggerError struct {
 	info string
 }
@@ -269,8 +261,6 @@ func (l * LoggingT)createFiles() error {
 	return nil
 }
 
-
-
 func (l *LoggingT)Close() {
 	l.lockAndFlushAll()
 }
@@ -309,7 +299,6 @@ func (l * LoggingT)needFileSizeRotate(currentSize uint64) bool {
 	return (l.rotateFileMaxSize <= currentSize)
 }
 
-
 func (l *syncBuffer)rotateFWriter() error {
 	return l.rotateFile(time.Now(), true)
 }
@@ -319,20 +308,34 @@ func Close() {
 }
 
 
+func getSeverityLevelByName(name string) (severity, error){
+	for s, str := severityName {
+		if str == name {
+			return s, nil
+		}
+	}
+	return numSeverity, &LoggerError { info : fmt.Sprintf("level name can't be %s it can be INFO|WARNING|ERROR|FATAL ", name)}
+}
+
 // create a new logger
 // filename : log file name can't be empty
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLoggerFileSizeRotate(logPath string, maxSize uint64, multiLog bool) (*LoggingT, error) {
+func NewLoggerFileSizeRotate(loglevel string, logPath string, maxSize uint64, multiLog bool) (*LoggingT, error) {
 	
 	if logPath == "" {
 		return nil, &LoggerError{ info: "logPath can't be empty" }
 	}
 	
+	s, err := getSeverityLevelByName(loglevel)
+	if err != nil {
+		return nil, err
+	}
+	
 	var l LoggingT
 	l.logPath = logPath
-	l.logFileLevel = warningLog
-	l.stderrThreshold = errorLog//l.logFileLevel
+	l.logFileLevel = s
+	l.stderrThreshold = errorLog	//l.logFileLevel
 	l.multiLog = multiLog
 	l.setRotateFileSize(maxSize)
 	l.toStderr = false // outPut to stderr

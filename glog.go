@@ -441,6 +441,7 @@ func (l *LoggingT) printf(s severity, format string, args ...interface{}) {
 	l.output(s, buf, file, line, false)
 }
 
+/*
 // printWithFileLine behaves like print but uses the provided file and line number.  If
 // alsoLogToStderr is true, the log message always appears on standard error; it
 // will also appear in the log file unless --logtostderr is set.
@@ -452,6 +453,8 @@ func (l *LoggingT) printWithFileLine(s severity, file string, line int, alsoToSt
 	}
 	l.output(s, buf, file, line, alsoToStderr)
 }
+*/
+
 
 // output writes the data to the log files and releases the buffer.
 func (l *LoggingT) output(s severity, buf *buffer, file string, line int, alsoToStderr bool) {
@@ -731,11 +734,13 @@ func Info(args ...interface{}) {
 	logging.print(infoLog, args...)
 }
 
+/*
 // InfoDepth acts as Info but uses depth to determine which call frame to log.
 // InfoDepth(0, "msg") is the same as Info("msg").
 func InfoDepth(depth int, args ...interface{}) {
 	logging.printDepth(infoLog, depth, args...)
 }
+*/
 
 // Infoln logs to the INFO log.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
@@ -779,11 +784,13 @@ func Error(args ...interface{}) {
 	logging.print(errorLog, args...)
 }
 
+/*
 // ErrorDepth acts as Error but uses depth to determine which call frame to log.
 // ErrorDepth(0, "msg") is the same as Error("msg").
 func ErrorDepth(depth int, args ...interface{}) {
 	logging.printDepth(errorLog, depth, args...)
 }
+*/
 
 // Errorln logs to the ERROR, WARNING, and INFO logs.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
@@ -804,11 +811,13 @@ func Fatal(args ...interface{}) {
 	logging.print(fatalLog, args...)
 }
 
+/*
 // FatalDepth acts as Fatal but uses depth to determine which call frame to log.
 // FatalDepth(0, "msg") is the same as Fatal("msg").
 func FatalDepth(depth int, args ...interface{}) {
 	logging.printDepth(fatalLog, depth, args...)
 }
+*/
 
 // Fatalln logs to the FATAL, ERROR, WARNING, and INFO logs,
 // including a stack trace of all running goroutines, then calls os.Exit(255).
@@ -817,12 +826,14 @@ func Fatalln(args ...interface{}) {
 	logging.println(fatalLog, args...)
 }
 
+/*
 // Fatalf logs to the FATAL, ERROR, WARNING, and INFO logs,
 // including a stack trace of all running goroutines, then calls os.Exit(255).
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Fatalf(format string, args ...interface{}) {
 	logging.printf(fatalLog, format, args...)
 }
+*/
 
 // fatalNoStacks is non-zero if we are to exit without dumping goroutine stacks.
 // It allows Exit and relatives to use the Fatal logs.
@@ -835,12 +846,14 @@ func Exit(args ...interface{}) {
 	logging.print(fatalLog, args...)
 }
 
+/*
 // ExitDepth acts as Exit but uses depth to determine which call frame to log.
 // ExitDepth(0, "msg") is the same as Exit("msg").
 func ExitDepth(depth int, args ...interface{}) {
 	atomic.StoreUint32(&fatalNoStacks, 1)
 	logging.printDepth(fatalLog, depth, args...)
 }
+*/
 
 // Exitln logs to the FATAL, ERROR, WARNING, and INFO logs, then calls os.Exit(1).
 func Exitln(args ...interface{}) {
