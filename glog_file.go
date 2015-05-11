@@ -30,9 +30,6 @@ import (
 	"time"
 )
 
-// MaxSize is the maximum size of a log file in bytes.
-var MaxSize uint64 = 1024 * 1024 * 1800
-
 // logDirs lists the candidate directories for new log files.
 var logDirs []string
 
@@ -86,46 +83,28 @@ func shortHostname(hostname string) string {
 	return hostname
 }
 
-// logName returns a new log file name containing tag, with start time t, and
-// the name for the symlink for tag.
-func logName(tag string, t time.Time) (name, link string) {
-	name = fmt.Sprintf("%s.%s.%s.log.%s.%04d%02d%02d-%02d%02d%02d.%d",
-		program,
-		host,
-		userName,
-		tag,
-		t.Year(),
-		t.Month(),
-		t.Day(),
-		t.Hour(),
-		t.Minute(),
-		t.Second(),
-		pid)
-	return name, program + "." + tag
-}
-
+// TODO
 var onceLogDirs sync.Once
 
 // create creates a new log file and returns the file and its filename, which
 // contains tag ("INFO", "FATAL", etc.) and t.  If the file is created
 // successfully, create also attempts to update the symlink for that tag, ignoring
 // errors.
-func create(/*tag string,*/ t time.Time, ldir string, dailyRotate bool) (f *os.File, filename string, err error) {
+func create(tag string, t time.Time, ldir string, dailyRotate bool) (f *os.File, filename string, err error) {
 	onceLogDirs.Do(func () {
 		createLogDirs(ldir)
 	})
 	if len(logDirs) == 0 {
 		return nil, "", errors.New("log: no log dirs")
 	}
-	//name, link := logName(tag, t)
+
 	var fname string
 	if dailyRotate {
-		fname = getDailyFileName(logDirs[0], t)
+		fname = getDailyFileName(logDirs[0], time.Now(), tag)
 	} else {
-		fname, err = getRotateFileName(logDirs[0])
+		fname, err = getRotateFileName(logDirs[0], tag)
 	}
-	
-	
+
 	if err != nil {
 		return nil, "", fmt.Errorf("log: cannot create log: %v", err)
 	}
@@ -139,8 +118,10 @@ func create(/*tag string,*/ t time.Time, ldir string, dailyRotate bool) (f *os.F
 	
 }
 
-func getDailyFileName(dir string, t time.Time) string {
-	name := fmt.Sprintf("%s.%s.%s.%d.log.%04d%02d%02d-%02d%02d%02d",
+func getDailyFileName(dir string, t time.Time, tag string) string {
+	var fname string
+	if tag == "" {
+		fname = fmt.Sprintf("%s.%s.%s.%d.log.%04d%02d%02d-%02d%02d%02d",
 		program,
 		host,
 		userName,
@@ -151,15 +132,42 @@ func getDailyFileName(dir string, t time.Time) string {
 		t.Hour(),
 		t.Minute(),
 		t.Second())
-	return name
-}
-
-func getRotateFileName(dir string) (string, error) {
-	fname := fmt.Sprintf("%s.%s.%s.log",
+	} else {
+		fname = fmt.Sprintf("%s.%s.%s.%d.log.%s.%04d%02d%02d-%02d%02d%02d",
 		program,
 		host,
 		userName,
-		)
+		pid,
+		tag,
+		t.Year(),
+		t.Month(),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second())
+	}
+	
+	fname = filepath.Join(dir, fname)
+	return fname
+}
+
+func getRotateFileName(dir string, tag string) (string, error) {
+	var fname string
+	if tag == "" {
+		fname = fmt.Sprintf("%s.%s.%s.log",
+					program,
+					host,
+					userName,
+				)
+	} else {
+		fname = fmt.Sprintf("%s.%s.%s.%s.log",
+					program,
+					host,
+					userName,
+					tag,
+				)
+	}
+		
 	fname = filepath.Join(dir, fname)
 	descName, err := rotateFileName(fname, 10)
 	if err != nil {
@@ -167,12 +175,13 @@ func getRotateFileName(dir string) (string, error) {
 	}
 	os.Remove(descName)
 	os.Rename(fname, descName)
-	fmt.Println("change name from ", fname, "to", descName)
+//	fmt.Println("change name from ", fname, "to", descName)
 	return fname, err
 }
 
 // 查找可以使用的文件夹
 func rotateFileName(fname string, rotNum int) (string, error) {
+	//startTime := time.Now().UnixNano()
 	// 找最旧的一个或者找不存在的第一个如果返回空代表全是文件夹
 	var t time.Time = time.Now()
 	var oldName string
@@ -189,6 +198,7 @@ func rotateFileName(fname string, rotNum int) (string, error) {
 			break
 		}
 	}
+	//fmt.Printf("rotateFileName cost %d \n", (time.Now().UnixNano() - startTime) / int64(time.Microsecond))
 	if len(oldName) <= 0 {
 		return oldName, &LoggerError{ fname + "000 can't be create" }
 	}

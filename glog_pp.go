@@ -1,10 +1,75 @@
 package glog
 
-import (	
-	//"fmt"
+import (
+	"fmt"
 	"sync/atomic"
 	"time"
 )
+
+// 使用 logWriterProxy 代替 flushSyncWriter
+type logWriterProxy interface {
+	rotateFWriter() // 轮转日志
+	SyncAndFlush()	//
+	Write(s severity, data []byte) // 写日志
+}
+
+type singleLogProxy struct {
+	file flushSyncWriter
+	sev severity
+}
+
+func (s *singleLogProxy)SyncAndFlush() {
+	if s.file != nil {
+		s.file.Flush()
+		s.file.Sync()
+	}
+}
+
+func (l * singleLogProxy)Write(s severity, data []byte) {
+	if l.sev <= s {
+		l.file.Write(data)
+	}
+}
+
+func (s *singleLogProxy)rotateFWriter() {
+	s.file.rotateFWriter()
+}
+
+type multiLogProxy struct {
+	files [numSeverity]flushSyncWriter
+}
+
+func (p * multiLogProxy)Write(sev severity, data []byte) {
+	for s := fatalLog; s >= infoLog; s-- {
+		fmt.Println("sev > s", sev > s, "-", sev , s)
+		if sev < s {
+			continue
+		}
+		file := p.files[s]
+		if file != nil {
+			file.Write(data)
+		}
+	}
+}
+
+func (p *multiLogProxy)rotateFWriter() {
+	for s := fatalLog; s >= infoLog; s-- {
+		file := p.files[s]
+		if file != nil {
+			file.rotateFWriter()
+		}
+	}
+}
+
+func (m *multiLogProxy)SyncAndFlush() {
+		for s := fatalLog; s >= infoLog; s-- {
+		file := m.files[s]
+		if file != nil {
+			file.Flush()
+			file.Sync()
+		}
+	}
+}
 
 func (l *LoggingT)Info(args ...interface{}) {
 	l.print(infoLog, args...)
@@ -148,7 +213,6 @@ func (l *LoggerError)Error() string {
 	return "LoggerError : " + l.info
 }
 
-
 //
 func (l *LoggingT)setRotateDaily(time int) {
 	l.rotateDaily = true	
@@ -166,15 +230,46 @@ func (l * LoggingT)createFile() error {
 	
 	sb := &syncBuffer{
 				logger: l,
+				sev : numSeverity,  // use less
 			}
 	
 	if err := sb.rotateFile(now, l.rotateDaily); err != nil {
 		return err
 	}
 	
-	l.logFile = sb;
+	l.logFile = &singleLogProxy {
+		file : sb,
+		sev  : l.logFileLevel,	
+	};
 	return nil
 }
+
+
+// create multi files
+func (l * LoggingT)createFiles() error {
+	now := time.Now()
+	m := &multiLogProxy{}
+	
+	for i := fatalLog ; i >= infoLog; i-- {
+		if l.logFileLevel > i {
+			continue
+		}
+		sb 	:=	&syncBuffer {
+					logger: l,
+					sev : i,
+				}
+				
+		if err := sb.rotateFile(now, l.rotateDaily); err != nil {
+			return err
+		}
+		m.files[i] = sb
+	}
+	
+	l.logFile = m;
+	return nil
+}
+
+
 
 func (l *LoggingT)Close() {
 	l.lockAndFlushAll()
@@ -228,7 +323,7 @@ func Close() {
 // filename : log file name can't be empty
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLoggerFileSizeRotate(logPath string, maxSize uint64) (*LoggingT, error) {
+func NewLoggerFileSizeRotate(logPath string, maxSize uint64, multiLog bool) (*LoggingT, error) {
 	
 	if logPath == "" {
 		return nil, &LoggerError{ info: "logPath can't be empty" }
@@ -236,13 +331,13 @@ func NewLoggerFileSizeRotate(logPath string, maxSize uint64) (*LoggingT, error) 
 	
 	var l LoggingT
 	l.logPath = logPath
+	l.logFileLevel = warningLog
+	l.stderrThreshold = errorLog//l.logFileLevel
+	l.multiLog = multiLog
 	l.setRotateFileSize(maxSize)
 	l.toStderr = false // outPut to stderr
 	l.alsoToStderr = false
-	l.logFileLevel = infoLog
-	l.stderrThreshold = errorLog//l.logFileLevel
-	l.setVState(0, nil, false)
-	// thread-safe?
+
 	go l.flushDaemon()
 	return &l, nil
 }
@@ -251,7 +346,7 @@ func NewLoggerFileSizeRotate(logPath string, maxSize uint64) (*LoggingT, error) 
 // filename : log file name can't be empty
 // rotate type : 1. rotate count, max file size 
 // 				 2. daliy rotate
-func NewLoggerDailyRotate(logPath string, t int) (*LoggingT, error) {
+func NewLoggerDailyRotate(logPath string, t int, multiLog bool) (*LoggingT, error) {
 	
 	if logPath == "" {
 		return nil, &LoggerError{ info: "logPath can't be empty" }
@@ -260,12 +355,12 @@ func NewLoggerDailyRotate(logPath string, t int) (*LoggingT, error) {
 	var l LoggingT
 	l.logPath = logPath
 	l.setRotateDaily(t)
+	l.multiLog = multiLog 
 	l.toStderr = false // outPut to stderr
 	l.alsoToStderr = false
 	l.logFileLevel = infoLog
 	l.stderrThreshold = errorLog//l.logFileLevel
-	l.setVState(0, nil, false)
-	// thread-safe?
+
 	go l.flushDaemon()
 	return &l, nil
 }

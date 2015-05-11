@@ -24,7 +24,7 @@ func TestToolFunc(t *testing.T) {
 		userName,
 		pid)
 	
-	fname := getDailyFileName("./", ti)
+	fname := getDailyFileName("./", ti, "")
 	if fname != name {
 		t.Error("getDailyFileName format error %t ", fname)
 	} else {
@@ -101,25 +101,42 @@ func TestNeedRotate(t * testing.T) {
 */
 
 
+/*
 func TestMaxFileSizeRotate(t * testing.T) {
-	l, err := NewLoggerDailyRotate("./", 130000)
-		if err != nil {
+	l, err := NewLoggerDailyRotate("./", 130000)  // HH:MM:SS
+	
+	if err != nil {
 		t.Error("NewLogger error %v ", err)
 	}
 	
 	for i := 0 ; i < 1000000; i++ {
 		l.Info("Just for test")
+		
 	}
 	l.Close()
 }
+*/
 
+const (
+	totalNum = 100
+) 
 
+func TestMaxFileSizeRotate(t * testing.T) {
+	l, err := NewLoggerFileSizeRotate("./", 1, false)
+	if err != nil {
+		t.Error("NewLogger error %v ", err)
+	}
+	l.Info("Info Just for test")
+	l.Warning("Warning Just for test")
+	l.Error("Error Just for test")
+	l.Close()
+}
 
+/*
 func TestWriteLog(t * testing.T) {
-	for i := 0 ; i < 10000000; i++ {
+	for i := 0 ; i < totalNum; i++ {
 		Info("Just for test")
 	}
-	
-	
 	Close()
 }
+*/
